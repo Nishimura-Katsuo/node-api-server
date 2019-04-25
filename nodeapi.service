@@ -1,0 +1,17 @@
+[Unit]
+Description=Node API Server for nginx
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+ExecStart=/usr/bin/node /var/www/node-api/server.js
+WorkingDirectory=/var/www/node-api/
+Restart=always
+RestartSec=10
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=node-http
+
+[Install]
+WantedBy=multi-user.target
