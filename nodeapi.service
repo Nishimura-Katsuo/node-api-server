@@ -5,6 +5,7 @@ After=network.target
 [Service]
 User=www-data
 Group=www-data
+Environment="GOOGLE_APPLICATION_CREDENTIALS=/var/www/nishicode.json"
 ExecStart=/usr/bin/node /var/www/node-api/server.js
 WorkingDirectory=/var/www/node-api/
 Restart=always

@@ -1,5 +1,5 @@
-"use strict";
-/* globals global require process logDir htmlDocs logger Buffer */
+'use strict';
+/* globals global require process logDir htmlDocs logger Buffer WebSocket PseudoThread sleep */
 
 // the ws and compression modules are from npm
 // I think express is too?
@@ -8,7 +8,6 @@ const cluster = require('cluster');
 const url = require('url');
 const qs = require('querystring');
 const http = require('http');
-const WebSocket = require('ws');
 const fs = require('fs');
 const domain = require('domain');
 const maxPost = 1e4;
@@ -20,6 +19,51 @@ Object.defineProperties(global, {
 	},
 	htmlDocs: {
 		value: '/var/www/html',
+		writable: false,
+	},
+	WebSocket: {
+		value: require('ws'),
+		writable: false,
+	},
+	sleep: {
+		value: ms => new Promise(resolve => (ms && ms > 0) ? setTimeout(resolve, ms, ms) : setImmediate(resolve, 0)),
+		writable: false,
+	},
+	PseudoThread: {
+		value: Object.freeze({
+			valid: thread => Boolean(thread && typeof (thread.apply || thread.then || thread.next) === 'function'),
+			spawn: (thread, thisObj, ...args) => {
+				if (PseudoThread.valid(thread)) {
+					if (typeof thread.apply === 'function') {
+						thread = thread.apply(thisObj, args);
+					}
+
+					if (typeof thread.then === 'function') {
+						return thread;
+					}
+
+					if (typeof thread.next === 'function') {
+						return new Promise(resolve => {
+							let t = () => {
+								let ret = thread.next();
+
+								if (ret.done) {
+									resolve(ret.value);
+								} else {
+									setImmediate(t);
+								}
+							};
+
+							t();
+						});
+					}
+
+					return Promise.resolve(thread);
+				} else {
+					return Promise.reject(new Error('Pseudo-Threading requires function, promise, or generator!'));
+				}
+			}
+		}),
 		writable: false,
 	},
 });
@@ -95,7 +139,7 @@ function finish (res, code, text) {
 		res.writeHead(code, {'Content-Type': 'text/plain'});
 		res.end(text);
 	} else {
-		res.writeHead(200);
+		res.writeHead(code);
 		res.end();
 	}
 }
@@ -106,12 +150,12 @@ function scriptHandler (req, res) {
 	let postdata = [], postdatalen = 0;
 
 	if (!/\.js$/i.test(filepathbase)) {
-		filepathbase += ".js";
+		filepathbase += '.js';
 	}
 
 	fs.access(filepathbase, fs.constants.R_OK, access_err => {
 		if (access_err) {
-			return finish(res, 500, "No file access!");
+			return finish(res, 404);
 		}
 
 		try {
@@ -130,43 +174,58 @@ function scriptHandler (req, res) {
 						}
 					});
 					req.on('end', () => {
+						let reqStart = Date.now();
 						new Promise((resolve, reject) => {
 							scriptInterface = {
 								responseCode: 200,
-								headers: {'Content-Type': 'text/plain'},
+								headers: {'Content-Type': 'text/plain; charset=UTF-8'},
+								encoding: 'utf-8',
 								setCookie: {},
+								setSessionID: undefined,
 								getPostData: () => Buffer.concat(postdata).toString(),
 								query: q.query,
 								method: req.method,
 								path: q.pathname,
 								resolve: resolve,
 								reject: reject,
-								cookie: (req.headers.cookie ? qs.parse(req.headers.cookie, ';') : {}),
+								sleep: sleep,
+								cookie: (req.headers.cookie ? qs.parse(req.headers.cookie, '; ') : {}),
 							};
 
-							script.request(scriptInterface, logger);
+							if (PseudoThread.valid(script.request)) {
+								PseudoThread.spawn(script.request, scriptInterface, scriptInterface, logger).then(resolve).catch(reject);
+							} else {
+								resolve(script.request);
+							}
 						}).then(response => {
 							for (let k in scriptInterface.setCookie) {
-								res.setHeader('Set-Cookie', qs.escape(k) + "=" + qs.escape(scriptInterface.setCookie[k]));
+								res.setHeader('Set-Cookie', qs.escape(k) + '=' + qs.escape(scriptInterface.setCookie[k]) + '; Path=/; Expires=Fri, 31 Dec 2037 23:59:59 GMT; ');
 							}
+
+							if (scriptInterface.setSessionID) {
+								res.setHeader('Set-Cookie', 'session=' + qs.escape(scriptInterface.setSessionID) + '; Path=/; Expires=Fri, 31 Dec 2037 23:59:59 GMT; HttpOnly');
+							}
+
+							scriptInterface.headers['x-request-length'] = (Date.now() - reqStart) + 'ms';
 
 							res.writeHead(scriptInterface.responseCode, scriptInterface.headers);
 
-							if (response !== undefined && response !== null) {
-								res.end(response.toString(), 'binary');
+							if (response !== undefined && response !== null && response.toString) {
+								res.end(response, scriptInterface.encoding);
 							} else {
 								res.end();
 							}
 						}).catch(err => {
 							for (let k in scriptInterface.setCookie) {
-								res.setHeader('Set-Cookie', qs.escape(k) + "=" + qs.escape(scriptInterface.setCookie[k]));
+								res.setHeader('Set-Cookie', qs.escape(k) + '=' + qs.escape(scriptInterface.setCookie[k]));
 							}
 
 							logger.log(`[${process.pid} @ ${new Date().toUTCString()}] ` + err.stack ? err.stack : err.toString());
+							scriptInterface.headers['x-request-length'] = (Date.now() - reqStart) + 'ms';
 							res.writeHead(500, scriptInterface.headers);
 
 							if (err !== undefined && err !== null) {
-								res.end(err.stack ? err.stack : err.toString(), 'binary');
+								res.end(err.stack ? err.stack : err.toString(), 'utf-8');
 							} else {
 								res.end();
 							}
@@ -238,7 +297,7 @@ if (cluster.isMaster) { // master code
 			let filepathbase = htmlDocs + decodeURI(q.pathname);
 
 			if (!/\.js$/i.test(filepathbase)) {
-				filepathbase += ".js";
+				filepathbase += '.js';
 			}
 
 			let script = scripts.load(filepathbase);
@@ -246,7 +305,7 @@ if (cluster.isMaster) { // master code
 			if (script && typeof script.connect === 'function') {
 				ws.scriptPath = filepathbase;
 
-				if (script.connect(ws, wss, req)) {
+				if (script.connect.call(ws, ws, wss, req)) {
 					return;
 				}
 			}
