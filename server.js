@@ -128,9 +128,8 @@ const scripts = new class {
 			return require(file);
 		} catch (err) {
 			logger.log(err.stack);
+			throw err;
 		}
-
-		return null;
 	}
 };
 
@@ -225,7 +224,7 @@ function scriptHandler (req, res) {
 							res.writeHead(500, scriptInterface.headers);
 
 							if (err !== undefined && err !== null) {
-								res.end(err.stack ? err.stack : err.toString(), 'utf-8');
+								res.end(err.stack ? err.stack.replace(htmlDocs, '.') : err.toString(), 'utf-8');
 							} else {
 								res.end();
 							}
@@ -238,7 +237,7 @@ function scriptHandler (req, res) {
 		} catch (err) {
 			logger.log(err);
 
-			return finish(res, 500, err.toString());
+			return finish(res, 500, err.stack.replace(htmlDocs, '.'));
 		}
 	});
 }
