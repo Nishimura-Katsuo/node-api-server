@@ -211,7 +211,7 @@ function scriptHandler (req, res) {
 							res.writeHead(scriptInterface.responseCode, scriptInterface.headers);
 
 							if (response !== undefined && response !== null && response.toString) {
-								res.end(response, scriptInterface.encoding);
+								res.end(response.toString(scriptInterface.encoding), scriptInterface.encoding);
 							} else {
 								res.end();
 							}
@@ -318,4 +318,3 @@ if (cluster.isMaster) { // master code
 
 	server.listen(22345);
 }
-
