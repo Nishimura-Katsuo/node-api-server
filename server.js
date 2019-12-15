@@ -1,5 +1,5 @@
 'use strict';
-/* globals global require process logDir htmlDocs logger Buffer WebSocket PseudoThread sleep */
+/* globals global require process logDir htmlDocs logger Buffer WebSocket sleep */
 
 // the ws and compression modules are from npm
 // I think express is too?
@@ -11,6 +11,7 @@ const http = require('http');
 const fs = require('fs');
 const domain = require('domain');
 const maxPost = 1e4;
+const JSThread = require('./JSThread/JSThread');
 
 Object.defineProperties(global, {
 	logDir: {
@@ -29,41 +30,8 @@ Object.defineProperties(global, {
 		value: ms => new Promise(resolve => (ms && ms > 0) ? setTimeout(resolve, ms, ms) : setImmediate(resolve, 0)),
 		writable: false,
 	},
-	PseudoThread: {
-		value: Object.freeze({
-			valid: thread => Boolean(thread && typeof (thread.apply || thread.then || thread.next) === 'function'),
-			spawn: (thread, thisObj, ...args) => {
-				if (PseudoThread.valid(thread)) {
-					if (typeof thread.apply === 'function') {
-						thread = thread.apply(thisObj, args);
-					}
-
-					if (typeof thread.then === 'function') {
-						return thread;
-					}
-
-					if (typeof thread.next === 'function') {
-						return new Promise(resolve => {
-							let t = () => {
-								let ret = thread.next();
-
-								if (ret.done) {
-									resolve(ret.value);
-								} else {
-									setImmediate(t);
-								}
-							};
-
-							t();
-						});
-					}
-
-					return Promise.resolve(thread);
-				} else {
-					return Promise.reject(new Error('Pseudo-Threading requires function, promise, or generator!'));
-				}
-			}
-		}),
+	JSThread: {
+		value: Object.freeze(JSThread),
 		writable: false,
 	},
 });
@@ -191,8 +159,8 @@ function scriptHandler (req, res) {
 								cookie: (req.headers.cookie ? qs.parse(req.headers.cookie, '; ') : {}),
 							};
 
-							if (PseudoThread.valid(script.request)) {
-								PseudoThread.spawn(script.request, scriptInterface, scriptInterface, logger).then(resolve).catch(reject);
+							if (JSThread.valid(script.request)) {
+								JSThread.spawn(script.request.bind(scriptInterface), scriptInterface, logger).then(resolve).catch(reject);
 							} else {
 								resolve(script.request);
 							}
