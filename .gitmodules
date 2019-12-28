@@ -1,0 +1,3 @@
+[submodule "JSThread"]
+	path = JSThread
+	url = git@github.com:Nishimura-Katsuo/JSThread.git
