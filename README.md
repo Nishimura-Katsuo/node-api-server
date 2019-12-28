@@ -2,6 +2,7 @@
 A basic Node.js API server for use as a reverse proxy target.
 
 Example nginx configuration for the reverse proxy:
+
 	location /api {
 		proxy_pass http://localhost:22345;
 		proxy_http_version 1.1;
