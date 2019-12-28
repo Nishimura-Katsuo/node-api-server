@@ -1,5 +1,5 @@
 'use strict';
-/* globals global require process logDir htmlDocs logger Buffer WebSocket sleep */
+/* globals global require process htmlDocs logger Buffer WebSocket sleep */
 
 // the ws and compression modules are from npm
 // I think express is too?
@@ -14,10 +14,6 @@ const maxPost = 1e4;
 const JSThread = require('./JSThread/JSThread');
 
 Object.defineProperties(global, {
-	logDir: {
-		value: '/var/www/node-api-server/logs',
-		writable: false,
-	},
 	htmlDocs: {
 		value: '/var/www/html',
 		writable: false,
@@ -42,28 +38,7 @@ Object.defineProperties(global, {
 		writable: false,
 	},
 	logger: {
-		value: (() => {
-			if (cluster.isMaster) {
-				return console;
-			}
-
-			let myout;
-			let myerr;
-
-			if (process.stdout.isTTY) {
-				myout = process.stdout;
-				myerr = process.stderr;
-			} else {
-				if (!fs.existsSync(logDir)) {
-					fs.mkdirSync(logDir);
-				}
-
-				myout = fs.createWriteStream( logDir + '/CONSOLE', {flags: 'a'});
-				myerr = myout;
-			}
-
-			return new console.Console(myout, myerr);
-		})(),
+		value: console,
 		writable: false,
 	},
 });
