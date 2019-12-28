@@ -12,6 +12,6 @@ Example nginx configuration for the reverse proxy:
 		proxy_cache_bypass $http_upgrade;
 	}
 
-If you wish to run this as a docker image use this commands:
+If you wish to run this as a docker image use this command:
 
-	docker run -d --restart unless-stopped -p 22345:22345 -v /var/www/html:/var/www/html nishimurakatsuo/node-api-server
+	docker run -d --restart unless-stopped -p 22345:22345 -v /path/to/your/htdocs:/var/www/html nishimurakatsuo/node-api-server
