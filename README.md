@@ -15,3 +15,7 @@ Example nginx configuration for the reverse proxy:
 If you wish to run this as a docker image use this command:
 
 	docker run -d --restart unless-stopped -p 22345:22345 -v /path/to/your/htdocs:/var/www/html nishimurakatsuo/node-api-server
+
+Or if you want it as a standalone API server then change the port to 80:
+
+	docker run -d --restart unless-stopped -p 80:22345 -v /path/to/your/htdocs:/var/www/html nishimurakatsuo/node-api-server
