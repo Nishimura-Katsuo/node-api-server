@@ -15,7 +15,7 @@ const JSThread = require('./JSThread/JSThread');
 
 Object.defineProperties(global, {
 	logDir: {
-		value: '/var/www/node-api/logs',
+		value: '/var/www/node-api-server/logs',
 		writable: false,
 	},
 	htmlDocs: {

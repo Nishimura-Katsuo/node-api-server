@@ -5,14 +5,13 @@ After=network.target
 [Service]
 User=www-data
 Group=www-data
-Environment="GOOGLE_APPLICATION_CREDENTIALS=/var/www/nishicode.json"
-ExecStart=/usr/bin/node /var/www/node-api/server.js
-WorkingDirectory=/var/www/node-api/
+ExecStart=/usr/bin/node /var/www/node-api-server/server.js
+WorkingDirectory=/var/www/node-api-server/
 Restart=always
 RestartSec=10
 StandardOutput=syslog
 StandardError=syslog
-SyslogIdentifier=node-http
+SyslogIdentifier=nodeapi
 
 [Install]
 WantedBy=multi-user.target
