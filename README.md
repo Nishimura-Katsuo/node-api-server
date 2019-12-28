@@ -1,4 +1,4 @@
-# node-api-server
+# Node API Server
 A basic Node.js API server for use as a reverse proxy target.
 
 Example nginx configuration for the reverse proxy:
