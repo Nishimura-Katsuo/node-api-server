@@ -41,6 +41,33 @@ Object.defineProperties(global, {
 		value: console,
 		writable: false,
 	},
+	_htmlTemplateValues: {
+		value: function (strings, ...values) {
+			let convert = function (value, i, a) {
+				switch (typeof value) {
+				case 'object':
+					if (!Array.isArray(value)) {
+						value = Object.values(value);
+					}
+
+					return value.map(convert).join('');
+				case 'undefined':
+					return '';
+				default:
+					return a && i < a.length - 1 ? value.toString().trimEnd() : value.toString();
+				}
+			};
+
+			return strings.map((str, i) => str + convert(values[i])).join('');
+		},
+		writable: false,
+	},
+	htmlTemplate: {
+		value: function (template, params = {}) {
+			return (new Function(...Object.keys(params), 'return _htmlTemplateValues`' + template + '`'))(...Object.values(params));
+		},
+		writable: false,
+	},
 });
 
 const scripts = new class {
@@ -213,6 +240,8 @@ function scriptRouter (req, res) {
 		return;
 	}
 }
+
+process.chdir(htmlDocs);
 
 if (cluster.isMaster) { // master code
 	console.log('Spawning children...');
