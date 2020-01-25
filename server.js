@@ -47,7 +47,7 @@ Object.defineProperties(global, {
 				switch (typeof value) {
 				case 'object':
 					if (!Array.isArray(value)) {
-						value = Object.values(value);
+						return JSON.stringify(value);
 					}
 
 					return value.map(convert).join('');
