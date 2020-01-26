@@ -64,7 +64,11 @@ Object.defineProperties(global, {
 	},
 	htmlTemplate: {
 		value: function (template, params = {}) {
-			return (new Function(...Object.keys(params), 'return _htmlTemplateValues`' + template + '`'))(...Object.values(params));
+			if (template.toString) {
+				return (new Function(...Object.keys(params), 'return _htmlTemplateValues`' + template.toString() + '`'))(...Object.values(params));
+			}
+
+			return null;
 		},
 		writable: false,
 	},
