@@ -42,10 +42,16 @@ Object.defineProperties(global, {
 		writable: false,
 	},
 	_htmlTemplateValues: {
-		value: function (strings, ...values) {
-			let convert = function (value, i, a) {
+		value: (context = {}) => (function (strings, ...values) {
+			let convert = function (value) {
 				switch (typeof value) {
+				case 'function':
+					return convert(value.apply(context));
 				case 'object':
+					if (value === null) {
+						return '';
+					}
+
 					if (!Array.isArray(value)) {
 						return JSON.stringify(value);
 					}
@@ -54,18 +60,18 @@ Object.defineProperties(global, {
 				case 'undefined':
 					return '';
 				default:
-					return a && i < a.length - 1 ? value.toString().trimEnd() : value.toString();
+					return value.toString();
 				}
 			};
 
 			return strings.map((str, i) => str + convert(values[i])).join('');
-		},
+		}),
 		writable: false,
 	},
 	htmlTemplate: {
-		value: function (template, params = {}) {
+		value: function (template, context = {}, params = {}) {
 			if (template.toString) {
-				return (new Function(...Object.keys(params), 'return _htmlTemplateValues`' + template.toString() + '`'))(...Object.values(params));
+				return new Function(...Object.keys(params), 'return _htmlTemplateValues(this)`' + template.toString() + '`').apply(context, Object.values(params));
 			}
 
 			return null;
